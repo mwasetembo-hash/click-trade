@@ -446,7 +446,7 @@ function Dashboard() {
   const burstMatch = (d: number) => fireMany(Array.from({ length: BURST }, () => ({ ct: "DIGITMATCH", barrier: String(d), label: `Matches ${d}`, digit: d })));
   const sideSpec = (side: 0 | 1): FireSpec => {
     const sgn = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
-    const barrier = def.barrier === "digit" ? String(side === 1 && kind === "OVER_UNDER" ? doubleDigit : digit) : def.barrier === "offset" ? sgn(side === 1 && kind === "HIGHER_LOWER" ? -Math.abs(offset) : offset) : undefined;
+    const barrier = def.barrier === "digit" ? String(side === 1 && kind === "OVER_UNDER" ? doubleDigit : digit) : def.barrier === "offset" ? sgn(offset) : undefined;
     return { ct: def.types[side], ...(barrier != null ? { barrier } : {}), label: `${def.sides[side]}${barrier ? ` ${barrier}` : ""}` };
   };
   const burstSide = (pick: 0 | 1 | "both") => fireMany((pick === "both" ? [0, 1] as const : [pick]).flatMap((sd) => Array.from({ length: BURST }, () => sideSpec(sd))));
