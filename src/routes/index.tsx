@@ -384,6 +384,48 @@ function Dashboard() {
     } finally { orderLock.current = false; setBusy(false); }
   }, [account, duration, unit, symbol, def, digit, doubleDigit, offset, hi, lo, selectedTick, multiplier, growthRate, tpAmt, slAmt, available, status, balance, riskPercent, maxStake, trades, prices.length, setupId, directional]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Rapid-tap Digits Matches: every tap fires its own independent order; each settles on its own.
+  const [inflight, setInflight] = useState<number[]>(() => Array(10).fill(0));
+  const inflightTotal = useRef(0);
+  const rapidMatch = async (d: number) => {
+    const c = client.current;
+    if (!c || !account || status !== "on") return;
+    const prot = stakeProtection(stake, balance, riskPercent, maxStake);
+    if (prot) { setError(prot); addLog(`Tap blocked: ${prot}`); return; }
+    if (prices.length < 20) { addLog("Tap blocked: waiting for live ticks"); return; }
+    if (balance != null && (inflightTotal.current + 1) * stake > balance) { addLog("Tap blocked: open taps would exceed your balance"); return; }
+    const bump = (n: number) => { inflightTotal.current += n; setInflight((a) => a.map((v, i) => (i === d ? Math.max(0, v + n) : v))); };
+    bump(1);
+    try {
+      const b: any = await c.send({ buy: 1, price: Number((stake * 1.05 + 0.01).toFixed(2)), parameters: { amount: Number(stake.toFixed(2)), basis: "stake", contract_type: "DIGITMATCH", currency: account.currency, underlying_symbol: symbol, duration: Math.min(10, Math.max(1, duration)), duration_unit: "t", barrier: String(d) } });
+      const id = Number(b?.buy?.contract_id);
+      if (!id) throw new Error("Deriv did not confirm the order");
+      const label = `Matches ${d}`;
+      setTrades((t) => [{ id, label, stake, profit: null, symbol, demo: account.isVirtual, accountId: account.loginid, time: new Date().toLocaleTimeString() }, ...t]);
+      addLog(`TAP BUY ${label} ${stake.toFixed(2)} on ${symbol} #${id}`);
+      const profit = await new Promise<number | null>((resolve) => {
+        let done = false;
+        const finish = (v: number | null) => { if (done) return; done = true; off(); clearInterval(poll); clearTimeout(cap); resolve(v); };
+        const check = (poc: any) => {
+          if (poc && Number(poc.contract_id) === id && (poc.is_sold || poc.status === "won" || poc.status === "lost") && poc.profit != null && Number.isFinite(Number(poc.profit))) finish(Number(poc.profit));
+        };
+        const off = c.on("proposal_open_contract", (m) => check(m.proposal_open_contract));
+        c.send({ proposal_open_contract: 1, contract_id: id, subscribe: 1 }).then((m) => check(m?.proposal_open_contract)).catch(() => {});
+        const poll = setInterval(() => { c.send({ proposal_open_contract: 1, contract_id: id }).then((m) => check(m?.proposal_open_contract)).catch(() => {}); }, 3000);
+        const cap = setTimeout(() => { addLog(`#${id} settlement unconfirmed — check unresolved orders`); finish(null); }, 180_000);
+      });
+      if (profit != null) {
+        lastSettle.current = Date.now();
+        setTrades((t) => t.map((x) => (x.id === id ? { ...x, profit } : x)));
+        addLog(`${profit > 0 ? "WIN" : "LOSS"} ${label} #${id}: ${profit.toFixed(2)}`);
+      }
+    } catch (e: any) {
+      addLog(`Tap error: ${e.message}`);
+      setError(e.message);
+    } finally { bump(-1); }
+  };
+  const burstMatch = (d: number) => { for (let i = 0; i < 9; i++) void rapidMatch(d); };
+
   useEffect(() => {
     if (!auto || busy || status !== "on") return;
     if (net <= -maxLoss) { setAuto(false); addLog("Stopped: loss limit reached"); return; }
@@ -595,6 +637,25 @@ function Dashboard() {
                       </div>
                     </div>
                   </>
+                ) : kind === "MATCH_DIFF" ? (
+                  <div className="space-y-1.5 font-mono text-xs">
+                    <div className="text-telemetry">TAP TO FIRE MATCHES · each tap = 1 order at stake {stake} · 9× = burst of 9</div>
+                    {stats.counts.map((c, d) => {
+                      const p = stats.total ? (c / stats.total) * 100 : 0;
+                      const max = Math.max(...stats.counts, 1);
+                      return (
+                        <div key={d} className={`flex items-center gap-2 rounded border p-1.5 ${d === digit ? "border-primary bg-primary/10" : "border-border"}`}>
+                          <button type="button" onClick={() => setDigit(d)} className="w-6 text-lg font-bold">{d}</button>
+                          <div className="flex-1">
+                            <div className="flex justify-between"><span className={p >= 12 ? "text-up" : p <= 8 ? "text-down" : ""}>{p.toFixed(0)}% {p >= 12 ? "HOT" : p <= 8 ? "COLD" : ""}</span>{inflight[d]! > 0 && <span className="text-primary">{inflight[d]} open</span>}</div>
+                            <div className="mt-1 h-1.5 rounded bg-muted"><div className="h-full rounded bg-primary" style={{ width: `${(c / max) * 100}%` }} /></div>
+                          </div>
+                          <Button variant="ghost" disabled={status !== "on"} onClick={() => void rapidMatch(d)} className="h-10 rounded-md bg-up px-4 font-bold text-primary-foreground active:scale-95 disabled:opacity-40">TAP</Button>
+                          <Button variant="ghost" disabled={status !== "on"} onClick={() => burstMatch(d)} className="h-10 rounded-md border border-primary px-3 font-bold text-primary active:scale-95 disabled:opacity-40">9×</Button>
+                        </div>
+                      );
+                    })}
+                  </div>
                 ) : (
                   <div className="grid grid-cols-10 gap-1 text-center font-mono text-xs">
                     {stats.counts.map((c, d) => {
