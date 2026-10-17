@@ -384,25 +384,28 @@ function Dashboard() {
     } finally { orderLock.current = false; setBusy(false); }
   }, [account, duration, unit, symbol, def, digit, doubleDigit, offset, hi, lo, selectedTick, multiplier, growthRate, tpAmt, slAmt, available, status, balance, riskPercent, maxStake, trades, prices.length, setupId, directional]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Rapid-tap Digits Matches: every tap fires its own independent order; each settles on its own.
+  // Rapid / burst execution: every order is independent and settles on its own (Deriv confirms each).
   const [inflight, setInflight] = useState<number[]>(() => Array(10).fill(0));
+  const [burstOpen, setBurstOpen] = useState(0);
+  const [autoBurst, setAutoBurst] = useState(false);
   const inflightTotal = useRef(0);
-  const rapidMatch = async (d: number) => {
+  type FireSpec = { ct: string; barrier?: string; label: string; digit?: number };
+  const fireOne = async (spec: FireSpec): Promise<number | null> => {
     const c = client.current;
-    if (!c || !account || status !== "on") return;
-    const prot = stakeProtection(stake, balance, riskPercent, maxStake);
-    if (prot) { setError(prot); addLog(`Tap blocked: ${prot}`); return; }
-    if (prices.length < 20) { addLog("Tap blocked: waiting for live ticks"); return; }
-    if (balance != null && (inflightTotal.current + 1) * stake > balance) { addLog("Tap blocked: open taps would exceed your balance"); return; }
-    const bump = (n: number) => { inflightTotal.current += n; setInflight((a) => a.map((v, i) => (i === d ? Math.max(0, v + n) : v))); };
+    if (!c || !account) return null;
+    const bump = (n: number) => {
+      inflightTotal.current += n; setBurstOpen(inflightTotal.current);
+      if (spec.digit != null) setInflight((a) => a.map((v, i) => (i === spec.digit ? Math.max(0, v + n) : v)));
+    };
     bump(1);
     try {
-      const b: any = await c.send({ buy: 1, price: Number((stake * 1.05 + 0.01).toFixed(2)), parameters: { amount: Number(stake.toFixed(2)), basis: "stake", contract_type: "DIGITMATCH", currency: account.currency, underlying_symbol: symbol, duration: Math.min(10, Math.max(1, duration)), duration_unit: "t", barrier: String(d) } });
+      const params: Record<string, unknown> = { amount: Number(stake.toFixed(2)), basis: "stake", contract_type: spec.ct, currency: account.currency, underlying_symbol: symbol, duration: def.digits ? Math.min(10, Math.max(1, duration)) : duration, duration_unit: def.digits ? "t" : unit };
+      if (spec.barrier != null) params["barrier"] = spec.barrier;
+      const b: any = await c.send({ buy: 1, price: Number((stake * 1.05 + 0.01).toFixed(2)), parameters: params });
       const id = Number(b?.buy?.contract_id);
       if (!id) throw new Error("Deriv did not confirm the order");
-      const label = `Matches ${d}`;
-      setTrades((t) => [{ id, label, stake, profit: null, symbol, demo: account.isVirtual, accountId: account.loginid, time: new Date().toLocaleTimeString() }, ...t]);
-      addLog(`TAP BUY ${label} ${stake.toFixed(2)} on ${symbol} #${id}`);
+      setTrades((t) => [{ id, label: spec.label, stake, profit: null, symbol, demo: account.isVirtual, accountId: account.loginid, time: new Date().toLocaleTimeString() }, ...t]);
+      addLog(`BURST BUY ${spec.label} ${stake.toFixed(2)} on ${symbol} #${id}`);
       const profit = await new Promise<number | null>((resolve) => {
         let done = false;
         const finish = (v: number | null) => { if (done) return; done = true; off(); clearInterval(poll); clearTimeout(cap); resolve(v); };
@@ -417,14 +420,37 @@ function Dashboard() {
       if (profit != null) {
         lastSettle.current = Date.now();
         setTrades((t) => t.map((x) => (x.id === id ? { ...x, profit } : x)));
-        addLog(`${profit > 0 ? "WIN" : "LOSS"} ${label} #${id}: ${profit.toFixed(2)}`);
+        addLog(`${profit > 0 ? "WIN" : "LOSS"} ${spec.label} #${id}: ${profit.toFixed(2)}`);
       }
+      return profit;
     } catch (e: any) {
-      addLog(`Tap error: ${e.message}`);
+      addLog(`Burst error: ${e.message}`);
       setError(e.message);
+      return null;
     } finally { bump(-1); }
   };
-  const burstMatch = (d: number) => { for (let i = 0; i < 9; i++) void rapidMatch(d); };
+  /** Sends every order in the same instant (no waiting between them), then tracks each one. */
+  const fireMany = async (specs: FireSpec[]): Promise<number | null> => {
+    if (!client.current || !account || status !== "on") return null;
+    const prot = stakeProtection(stake, balance, riskPercent, maxStake);
+    if (prot) { setError(prot); addLog(`Burst blocked: ${prot}`); return null; }
+    if (prices.length < 20) { addLog("Burst blocked: waiting for live ticks"); return null; }
+    if (balance != null && (inflightTotal.current + specs.length) * stake > balance) { addLog(`Burst blocked: ${specs.length} orders would exceed your balance`); setError("Burst would exceed your balance"); return null; }
+    addLog(`BURST ×${specs.length} dispatched together`);
+    const results = await Promise.all(specs.map(fireOne));
+    if (results.some((r) => r === null)) return null;
+    return results.reduce<number>((a, r) => a + (r ?? 0), 0);
+  };
+  const BURST = 9;
+  const rapidMatch = (d: number) => fireMany([{ ct: "DIGITMATCH", barrier: String(d), label: `Matches ${d}`, digit: d }]);
+  const burstMatch = (d: number) => fireMany(Array.from({ length: BURST }, () => ({ ct: "DIGITMATCH", barrier: String(d), label: `Matches ${d}`, digit: d })));
+  const sideSpec = (side: 0 | 1): FireSpec => {
+    const sgn = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
+    const barrier = def.barrier === "digit" ? String(side === 1 && kind === "OVER_UNDER" ? doubleDigit : digit) : def.barrier === "offset" ? sgn(offset) : undefined;
+    return { ct: def.types[side], ...(barrier != null ? { barrier } : {}), label: `${def.sides[side]}${barrier ? ` ${barrier}` : ""}` };
+  };
+  const burstSide = (pick: 0 | 1 | "both") => fireMany((pick === "both" ? [0, 1] as const : [pick]).flatMap((sd) => Array.from({ length: BURST }, () => sideSpec(sd))));
+  const burstable = !def.open && !def.single && def.barrier !== "range";
 
   useEffect(() => {
     if (!auto || busy || status !== "on") return;
@@ -445,12 +471,20 @@ function Dashboard() {
     const errors = [...new Set((both ? [0, 1] as const : [sig.side] as const).flatMap((sd) => preflight(sd, amt)))];
     if (both && balance != null && amt * 2 > balance) errors.push("Both orders together exceed your balance");
     if (errors.length) { setAuto(false); setError(errors.join(" · ")); addLog(`Autopilot paused: ${errors.join("; ")}`); return; }
-    placeTrade(both ? "both" : sig.side, amt).then((r) => {
+    const onDone = (r: number | null) => {
       if (r == null) return;
       streak.current = r > 0 ? 0 : r < 0 ? streak.current + 1 : streak.current;
       curStake.current = Math.min(stake, maxStake); // fixed stake — no martingale
-    });
-  }, [auto, busy, prices, status, net, stake, maxStake, riskPercent, balance, maxLoss, takeProfit, maxTrades, lossStreakStop, cooldown, minConf, brainGate, brain, mode, trades.length, autoDouble, def.single]); // eslint-disable-line react-hooks/exhaustive-deps
+    };
+    if (autoBurst && burstable) {
+      if (inflightTotal.current > 0) return;
+      setBusy(true);
+      const pick = kind === "MATCH_DIFF" ? null : both ? "both" : sig.side;
+      (pick === null ? burstMatch(digit) : burstSide(pick)).then(onDone).finally(() => setBusy(false));
+      return;
+    }
+    placeTrade(both ? "both" : sig.side, amt).then(onDone);
+  }, [auto, busy, prices, status, net, stake, maxStake, riskPercent, balance, maxLoss, takeProfit, maxTrades, lossStreakStop, cooldown, minConf, brainGate, brain, mode, trades.length, autoDouble, autoBurst, def.single]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const startAuto = () => {
     if (!account?.isVirtual) { setError("Autopilot is locked to DEMO accounts. Switch to your demo (VRTC) account to run it."); return; }
@@ -695,6 +729,14 @@ function Dashboard() {
                 <Button variant="ghost" hidden={!!def.single} disabled={status !== "on" || busy} onClick={() => placeTrade("both", stake)} className="col-span-full rounded-md border border-primary px-5 py-3 font-bold text-primary disabled:opacity-40">⚡ Double execute: {def.sides[0]} + {def.sides[1]}</Button>
               </div>
             </div>
+            {burstable && kind !== "MATCH_DIFF" && (
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                <Button variant="ghost" disabled={status !== "on"} onClick={() => void burstSide(0)} className="h-12 rounded-md bg-up font-bold text-primary-foreground active:scale-95 disabled:opacity-40">9× {def.sides[0]}</Button>
+                <Button variant="ghost" disabled={status !== "on"} onClick={() => void burstSide(1)} className="h-12 rounded-md bg-down font-bold text-primary-foreground active:scale-95 disabled:opacity-40">9× {def.sides[1]}</Button>
+                <Button variant="ghost" disabled={status !== "on"} onClick={() => void burstSide("both")} className="h-12 rounded-md border border-primary font-bold text-primary active:scale-95 disabled:opacity-40">⚡ 9× Double</Button>
+                <div className="col-span-3 text-xs text-muted-foreground">One tap sends all 9 orders at the same moment{burstOpen > 0 ? ` · ${burstOpen} open` : ""}</div>
+              </div>
+            )}
           </div>
         </section>
 
@@ -741,6 +783,11 @@ function Dashboard() {
               <label className="col-span-2 flex flex-col gap-1 text-xs text-muted-foreground">Sensitivity: {["", "Very careful", "Careful", "Balanced", "Sensitive", "Very sensitive"][sensitivity]}
                 <input type="range" min={1} max={5} value={sensitivity} onChange={(e) => setSensitivity(Number(e.target.value))} />
               </label>
+            )}
+            {burstable && (
+              <Button variant="ghost" onClick={() => setAutoBurst((v) => !v)} aria-pressed={autoBurst} className={`rounded border px-3 py-2 text-xs ${autoBurst ? "border-primary bg-primary/20 text-primary" : "border-border text-muted-foreground"}`}>
+                {autoBurst ? `⚡ Auto 9× burst ON — every signal fires 9 orders at once${autoDouble ? " per side" : ""}` : "Auto 9× burst OFF — autopilot fires 1 order per signal"}
+              </Button>
             )}
             {def.barrier === "digit" && num(digit, (n) => setDigit(Math.max(0, Math.min(9, Math.round(n)))), kind === "OVER_UNDER" ? "Over digit (1-9)" : "Prediction digit (0-9)")}
             {kind === "OVER_UNDER" && num(doubleDigit, (n) => setDoubleDigit(Math.max(0, Math.min(9, Math.round(n)))), "Under digit (0-9) — picks the ▼ UNDER line above")}
