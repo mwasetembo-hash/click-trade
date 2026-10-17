@@ -471,12 +471,20 @@ function Dashboard() {
     const errors = [...new Set((both ? [0, 1] as const : [sig.side] as const).flatMap((sd) => preflight(sd, amt)))];
     if (both && balance != null && amt * 2 > balance) errors.push("Both orders together exceed your balance");
     if (errors.length) { setAuto(false); setError(errors.join(" · ")); addLog(`Autopilot paused: ${errors.join("; ")}`); return; }
-    placeTrade(both ? "both" : sig.side, amt).then((r) => {
+    const onDone = (r: number | null) => {
       if (r == null) return;
       streak.current = r > 0 ? 0 : r < 0 ? streak.current + 1 : streak.current;
       curStake.current = Math.min(stake, maxStake); // fixed stake — no martingale
-    });
-  }, [auto, busy, prices, status, net, stake, maxStake, riskPercent, balance, maxLoss, takeProfit, maxTrades, lossStreakStop, cooldown, minConf, brainGate, brain, mode, trades.length, autoDouble, def.single]); // eslint-disable-line react-hooks/exhaustive-deps
+    };
+    if (autoBurst && burstable) {
+      if (inflightTotal.current > 0) return;
+      setBusy(true);
+      const pick = kind === "MATCH_DIFF" ? null : both ? "both" : sig.side;
+      (pick === null ? burstMatch(digit) : burstSide(pick)).then(onDone).finally(() => setBusy(false));
+      return;
+    }
+    placeTrade(both ? "both" : sig.side, amt).then(onDone);
+  }, [auto, busy, prices, status, net, stake, maxStake, riskPercent, balance, maxLoss, takeProfit, maxTrades, lossStreakStop, cooldown, minConf, brainGate, brain, mode, trades.length, autoDouble, autoBurst, def.single]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const startAuto = () => {
     if (!account?.isVirtual) { setError("Autopilot is locked to DEMO accounts. Switch to your demo (VRTC) account to run it."); return; }
