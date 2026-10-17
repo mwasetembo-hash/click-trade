@@ -78,9 +78,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Mwase Deriv Bot" },
+      { title: "MWASE KING JAGUAR HACKING BOT" },
       { name: "description", content: "Rise/Fall trading bot for Deriv demo and real accounts." },
-      { property: "og:title", content: "Mwase Deriv Bot" },
+      { property: "og:title", content: "MWASE KING JAGUAR HACKING BOT" },
       { property: "og:description", content: "Rise/Fall trading bot for Deriv demo and real accounts." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

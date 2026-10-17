@@ -15,15 +15,15 @@ import { Activity, Cpu, ShieldCheck, Terminal, Zap } from "lucide-react";
 import terminalEmblem from "@/assets/terminal-emblem.jpeg.asset.json";
 import { ExecutionConsole } from "@/components/ExecutionConsole";
 import { balanceStakeCap, stakeProtection, demoStrategyStats } from "@/lib/trading-session";
-import { canCloseCompanion, dispatchTogether } from "@/lib/paired-execution";
+import { canCloseCompanion, dispatchTogether, offsetSettingsBatch } from "@/lib/paired-execution";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "MWASE HYBRID_EXEC — Cyber Trading Terminal" },
-      { name: "description", content: "Mwase Signal Forge: three trend-confirmed strategies, demo performance comparison, balance-based stake protection and confirmed Deriv trading results." },
-      { property: "og:title", content: "MWASE HYBRID_EXEC — Cyber Trading Terminal" },
-      { property: "og:description", content: "A cyber trading console with demo strategy comparison, balance-based protection and real order states. No guaranteed profits." },
+      { title: "MWASE KING JAGUAR HACKING BOT" },
+      { name: "description", content: "MWASE KING JAGUAR HACKING BOT: Deriv trading with simultaneous barrier batches, balance protection and independently confirmed results. No guaranteed profits." },
+      { property: "og:title", content: "MWASE KING JAGUAR HACKING BOT" },
+      { property: "og:description", content: "Deriv trading with simultaneous barrier batches, balance protection and independently confirmed results. No guaranteed profits." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -389,7 +389,7 @@ function Dashboard() {
   const [burstOpen, setBurstOpen] = useState(0);
   const [autoBurst, setAutoBurst] = useState(false);
   const inflightTotal = useRef(0);
-  type FireSpec = { ct: string; barrier?: string; label: string; digit?: number };
+  type FireSpec = { ct: string; barrier?: string; label: string; digit?: number; duration?: number; unit?: Unit };
   const fireOne = async (spec: FireSpec): Promise<number | null> => {
     const c = client.current;
     if (!c || !account) return null;
@@ -399,7 +399,7 @@ function Dashboard() {
     };
     bump(1);
     try {
-      const params: Record<string, unknown> = { amount: Number(stake.toFixed(2)), basis: "stake", contract_type: spec.ct, currency: account.currency, underlying_symbol: symbol, duration: def.digits ? Math.min(10, Math.max(1, duration)) : duration, duration_unit: def.digits ? "t" : unit };
+      const params: Record<string, unknown> = { amount: Number(stake.toFixed(2)), basis: "stake", contract_type: spec.ct, currency: account.currency, underlying_symbol: symbol, duration: spec.duration ?? (def.digits ? Math.min(10, Math.max(1, duration)) : duration), duration_unit: spec.unit ?? (def.digits ? "t" : unit) };
       if (spec.barrier != null) params["barrier"] = spec.barrier;
       const b: any = await c.send({ buy: 1, price: Number((stake * 1.05 + 0.01).toFixed(2)), parameters: params });
       const id = Number(b?.buy?.contract_id);
@@ -429,7 +429,7 @@ function Dashboard() {
       return null;
     } finally { bump(-1); }
   };
-  /** Sends every order in the same instant (no waiting between them), then tracks each one. */
+  /** Dispatch without waiting between orders; the broker confirms each separately. */
   const fireMany = async (specs: FireSpec[]): Promise<number | null> => {
     if (!client.current || !account || status !== "on") return null;
     const prot = stakeProtection(stake, balance, riskPercent, maxStake);
@@ -446,6 +446,7 @@ function Dashboard() {
   const burstMatch = (d: number) => fireMany(Array.from({ length: BURST }, () => ({ ct: "DIGITMATCH", barrier: String(d), label: `Matches ${d}`, digit: d })));
   /** One tap = one Matches order on EVERY digit 0-9 at the same moment. */
   const burstAllDigits = () => fireMany(Array.from({ length: 10 }, (_, d) => ({ ct: "DIGITMATCH", barrier: String(d), label: `Matches ${d}`, digit: d })));
+  const burstOffsetSettings = () => fireMany(offsetSettingsBatch(def.types, def.sides, duration, unit));
   const sideSpec = (side: 0 | 1): FireSpec => {
     const sgn = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
     const barrier = def.barrier === "digit" ? String(side === 1 && kind === "OVER_UNDER" ? doubleDigit : digit) : def.barrier === "offset" ? sgn(offset) : undefined;
@@ -534,7 +535,7 @@ function Dashboard() {
     <div className="relative isolate min-h-screen font-mono text-foreground">
       <MatrixBackground />
       <header className="terminal-header sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-        <h1 className="text-glow text-base font-bold sm:text-xl"><span className="font-mono">root@mwase:~$</span> <span className="text-primary">HYBRID_EXEC</span><span className="animate-pulse text-primary">_</span></h1>
+        <h1 className="text-glow min-w-0 break-words text-base font-bold sm:text-xl">MWASE KING JAGUAR <span className="text-primary">HACKING BOT</span></h1>
         <div className="hidden flex-1 justify-center gap-4 font-mono text-xs md:flex">
           <span>EQUITY <b>{balance != null ? balance.toFixed(2) : "—"}</b></span>
           <span>P/L <b className={net >= 0 ? "text-up" : "text-down"}>{net.toFixed(2)}</b></span>
@@ -552,7 +553,7 @@ function Dashboard() {
         <div className="terminal-identity-inner">
           <div className="mx-auto max-w-7xl px-4 py-7 sm:px-6 sm:py-9">
             <div className="mb-3 flex flex-wrap items-center gap-3 text-xs text-telemetry"><Terminal size={15} /> MWASE / OPERATIONS TERMINAL <span className="text-muted-foreground">SYS.03</span></div>
-            <h2 className="font-sans text-3xl font-bold sm:text-4xl">HYBRID<span className="text-primary">_EXEC</span></h2>
+            <h2 className="max-w-2xl break-words font-sans text-3xl font-bold sm:text-4xl">MWASE KING JAGUAR <span className="text-primary">HACKING BOT</span></h2>
             <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-xs">
               <span className="flex items-center gap-2"><Cpu size={14} className="text-primary" /> 3 STRATEGY ENGINES</span>
               <span className="flex items-center gap-2"><ShieldCheck size={14} className="text-telemetry" /> TREND CONFIRMATION</span>
@@ -738,7 +739,7 @@ function Dashboard() {
                 <Button variant="ghost" disabled={status !== "on"} onClick={() => void burstSide(0)} className="h-12 rounded-md bg-up font-bold text-primary-foreground active:scale-95 disabled:opacity-40">9× {def.sides[0]}</Button>
                 <Button variant="ghost" disabled={status !== "on"} onClick={() => void burstSide(1)} className="h-12 rounded-md bg-down font-bold text-primary-foreground active:scale-95 disabled:opacity-40">9× {def.sides[1]}</Button>
                 <Button variant="ghost" disabled={status !== "on"} onClick={() => void burstSide("both")} className="h-12 rounded-md border border-primary font-bold text-primary active:scale-95 disabled:opacity-40">⚡ 9× Double</Button>
-                <div className="col-span-3 text-xs text-muted-foreground">One tap sends all 9 orders at the same moment{burstOpen > 0 ? ` · ${burstOpen} open` : ""}</div>
+                <div className="col-span-3 text-xs text-muted-foreground">9 orders per side · dispatched together · separate confirmations{burstOpen > 0 ? ` · ${burstOpen} open` : ""}</div>
               </div>
             )}
           </div>
@@ -801,6 +802,15 @@ function Dashboard() {
               </Button>
             )}
             {def.barrier === "offset" && num(offset, setOffset, "Barrier offset (+/-)", 0.01)}
+            {def.barrier === "offset" && (
+              <div className="col-span-2 space-y-2">
+                <Button variant="ghost" disabled={status !== "on" || busy} onClick={() => void burstOffsetSettings()} className="h-auto min-h-12 w-full whitespace-normal rounded-md border border-primary px-3 py-3 font-bold text-primary disabled:opacity-40">
+                  <Zap size={16} className="shrink-0" /> ALL ±0.5 SETTINGS · 4 ORDERS
+                </Button>
+                <div className="text-xs text-muted-foreground">{def.sides[0]} +0.5 / −0.5 · {def.sides[1]} +0.5 / −0.5</div>
+                <div className="text-xs text-muted-foreground">Total stake: {(4 * stake).toFixed(2)} {account?.currency ?? ""} · {duration}{unit} each · independent Deriv settlement{burstOpen > 0 ? ` · ${burstOpen} open` : ""}</div>
+              </div>
+            )}
             {def.barrier === "range" && <>{num(hi, setHi, "High barrier offset (+)", 0.01)}{num(lo, setLo, "Low barrier offset (-)", 0.01)}</>}
             {num(minConf, setMinConf, "Min confidence %")}
             {num(cooldown, setCooldown, "Pause after trade (sec)")}
