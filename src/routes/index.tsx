@@ -729,6 +729,14 @@ function Dashboard() {
                 <Button variant="ghost" hidden={!!def.single} disabled={status !== "on" || busy} onClick={() => placeTrade("both", stake)} className="col-span-full rounded-md border border-primary px-5 py-3 font-bold text-primary disabled:opacity-40">⚡ Double execute: {def.sides[0]} + {def.sides[1]}</Button>
               </div>
             </div>
+            {burstable && kind !== "MATCH_DIFF" && (
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                <Button variant="ghost" disabled={status !== "on"} onClick={() => void burstSide(0)} className="h-12 rounded-md bg-up font-bold text-primary-foreground active:scale-95 disabled:opacity-40">9× {def.sides[0]}</Button>
+                <Button variant="ghost" disabled={status !== "on"} onClick={() => void burstSide(1)} className="h-12 rounded-md bg-down font-bold text-primary-foreground active:scale-95 disabled:opacity-40">9× {def.sides[1]}</Button>
+                <Button variant="ghost" disabled={status !== "on"} onClick={() => void burstSide("both")} className="h-12 rounded-md border border-primary font-bold text-primary active:scale-95 disabled:opacity-40">⚡ 9× Double</Button>
+                <div className="col-span-3 text-xs text-muted-foreground">One tap sends all 9 orders at the same moment{burstOpen > 0 ? ` · ${burstOpen} open` : ""}</div>
+              </div>
+            )}
           </div>
         </section>
 
