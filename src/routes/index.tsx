@@ -444,6 +444,8 @@ function Dashboard() {
   const BURST = 9;
   const rapidMatch = (d: number) => fireMany([{ ct: "DIGITMATCH", barrier: String(d), label: `Matches ${d}`, digit: d }]);
   const burstMatch = (d: number) => fireMany(Array.from({ length: BURST }, () => ({ ct: "DIGITMATCH", barrier: String(d), label: `Matches ${d}`, digit: d })));
+  /** One tap = one Matches order on EVERY digit 0-9 at the same moment. */
+  const burstAllDigits = () => fireMany(Array.from({ length: 10 }, (_, d) => ({ ct: "DIGITMATCH", barrier: String(d), label: `Matches ${d}`, digit: d })));
   const sideSpec = (side: 0 | 1): FireSpec => {
     const sgn = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
     const barrier = def.barrier === "digit" ? String(side === 1 && kind === "OVER_UNDER" ? doubleDigit : digit) : def.barrier === "offset" ? sgn(offset) : undefined;
@@ -674,6 +676,8 @@ function Dashboard() {
                 ) : kind === "MATCH_DIFF" ? (
                   <div className="space-y-1.5 font-mono text-xs">
                     <div className="text-telemetry">TAP TO FIRE MATCHES · each tap = 1 order at stake {stake} · 9× = burst of 9</div>
+                    <Button variant="ghost" disabled={status !== "on"} onClick={() => void burstAllDigits()} className="h-11 w-full rounded-md border border-primary bg-primary/10 font-bold text-primary active:scale-95 disabled:opacity-40">⚡ ALL DIGITS 0–9 · fire every prediction at once</Button>
+                    <div className="text-center text-[11px] text-muted-foreground">One tap sends 10 orders (one per digit 0–9) at the same moment · total 10× your stake{burstOpen > 0 ? ` · ${burstOpen} open` : ""}</div>
                     {stats.counts.map((c, d) => {
                       const p = stats.total ? (c / stats.total) * 100 : 0;
                       const max = Math.max(...stats.counts, 1);
