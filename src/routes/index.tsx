@@ -41,7 +41,7 @@ const GROUPS = ["Forex", "Gold & Metals", "Commodities", "Stock Indices", "Crypt
 
 function Dashboard() {
   const client = useRef<DerivClient | null>(null);
-  const [appId, setAppId] = useState("");
+  const [appId, setAppId] = useState("34ARk0NOmxpaMAqV6Bwgg");
   const [token, setToken] = useState("");
   const [status, setStatus] = useState<"off" | "connecting" | "on">("off");
   const [error, setError] = useState("");
