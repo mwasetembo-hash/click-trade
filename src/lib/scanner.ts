@@ -65,7 +65,7 @@ export function scanInstrument(symbol: string, name: string, prices: number[], d
   return (Object.keys(CONTRACTS) as Kind[]).map(kind => {
     const def = CONTRACTS[kind];
     const s = kindSignal(kind, prices, decimals, { digit: 5, offset: 0.5, hi: 1, lo: -1, ticks: 5 });
-    const agrees = pat.side !== null && pat.side === s.side && !def.label.startsWith("Digit");
+    const agrees = pat.side !== null && pat.side === s.side && !def.digits;
     const confidence = s.side === null ? 0 : Math.min(100, Math.round(s.confidence * 0.8 + (agrees ? pat.confidence * 0.2 : 0)));
     return { symbol, name, kind, label: def.label, side: s.side === null ? null : def.sides[s.side] ?? null, confidence, edge: Math.max(0, confidence - 50), note: s.note };
   });

@@ -536,6 +536,7 @@ function Dashboard() {
       <MatrixBackground />
       <header className="terminal-header sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 px-4 py-3">
         <h1 className="text-glow min-w-0 break-words text-base font-bold sm:text-xl">MWASE KING JAGUAR <span className="text-primary">HACKING BOT</span></h1>
+        <a href="/scanner" className="rounded-sm border border-primary px-3 py-1 text-xs text-primary">Signal Matrix →</a>
         <div className="hidden flex-1 justify-center gap-4 font-mono text-xs md:flex">
           <span>EQUITY <b>{balance != null ? balance.toFixed(2) : "—"}</b></span>
           <span>P/L <b className={net >= 0 ? "text-up" : "text-down"}>{net.toFixed(2)}</b></span>
