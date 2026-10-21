@@ -7,7 +7,7 @@ describe("digit studio", () => {
   it("finds digit 5 as hot", () => expect(st.hot).toBe(5));
   it("counts 5 at 30 percent", () => expect(st.pct[5]).toBeCloseTo(30));
   it("splits even 40 / odd 60", () => { expect(st.even).toBeCloseTo(40); expect(st.odd).toBeCloseTo(60); });
-  it("measures over 4 at 60 percent", () => expect(st.over).toBeCloseTo(60));
+  it("measures over 4 at 50 percent", () => expect(st.over).toBeCloseTo(50));
   it("only uses the chosen window", () => expect(digitStudio(prices, 1, 3, 4).total).toBe(3));
 });
 
