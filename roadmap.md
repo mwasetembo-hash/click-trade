@@ -1,4 +1,8 @@
 # Tasks
+- [ ] Implement approved full brief: unified public-market dashboard, digit studio, explainable supported signals and paper lifecycle.
+- [ ] Add proposal confirmation, credential clearing and bounded risk safeguards across manual and batch orders.
+- [ ] Inspect referenced repositories and document any unavailable source features.
+- [ ] Verify new rules, terminal controls and mobile/desktop layouts; identify broker validation blockers.
 - [ ] Add one-tap +0.5 / -0.5 concurrent barrier batches with independent confirmed results, and rename the app.
 - [ ] Coordinate double-order dispatch and expiry, and test paired execution.
 - [x] Add a live mining-style console and demo-only strategy comparison.

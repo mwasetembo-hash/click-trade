@@ -1,0 +1,10 @@
+{
+  "source": "Approved product brief and external feature references; existing application retained",
+  "capabilities": [
+    {"capability":"Referenced source code and licenses","source":"Three GitHub repositories and digitpilot.site","outcome":"inspect","status":"pending","next_action":"Check public access and report unavailable source"},
+    {"capability":"Market discovery and signals","source":"Deriv public market API","outcome":"upgrade","status":"pending","next_action":"Discover symbols, contract availability and real ticks"},
+    {"capability":"Paper trading","source":"Approved brief","outcome":"implement","status":"pending","next_action":"Label virtual results and verify tick-driven settlement"},
+    {"capability":"Broker trading and credentials","source":"Existing PAT and OTP account flow","outcome":"preserve and guard","status":"pending","next_action":"Remove stored tokens and add proposal confirmation"},
+    {"capability":"Production broker validation","source":"User Deriv account","outcome":"verify","status":"blocked","next_action":"User must enter a replacement token in the app; no broker trade without authorization"}
+  ]
+}
