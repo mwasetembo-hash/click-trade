@@ -4,7 +4,7 @@ import { groupOf } from "@/lib/contracts";
 
 export type Market = { symbol: string; name: string; group: string; decimals: number; open: boolean };
 export type MarketFeed = { prices: number[]; timestamp: number; decimals: number };
-type Message = Record<string, any>;
+type Message = { active_symbols?: any[]; symbol?: string; underlying_symbol?: string; pip?: number; pip_size?: number; display_name?: string; underlying_symbol_name?: string; market?: string; exchange_is_open?: number; is_trading_suspended?: number; contracts_for?: any; contract_type?: string; req_id?: number; error?: any; history?: any; echo_req?: any; tick?: any; proposal?: any };
 type Pending = { resolve: (value: Message) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> };
 
 export function useMarketFeed() {

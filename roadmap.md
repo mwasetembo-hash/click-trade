@@ -1,4 +1,5 @@
 # Tasks
+- [ ] Fix Higher/Lower invalid barriers using current Deriv proposal rules; preserve +0.61, validate scanned entries before purchases, never guess offsets.
 - [ ] Implement approved full brief: unified public-market dashboard, digit studio, explainable supported signals and paper lifecycle.
 - [ ] Add proposal confirmation, credential clearing and bounded risk safeguards across manual and batch orders.
 - [ ] Inspect referenced repositories and document any unavailable source features.
