@@ -249,7 +249,7 @@ export function UnifiedTerminal({
         duration_unit: "t",
       };
       if (definition.barrier !== "none")
-        params.barrier =
+        params["barrier"] =
           definition.barrier === "digit" ? String(barrier) : `${barrier >= 0 ? "+" : ""}${barrier}`;
       const response = await request(params);
       const payout = Number(response.proposal?.payout);
